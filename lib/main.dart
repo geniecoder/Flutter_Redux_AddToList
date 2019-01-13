@@ -1,82 +1,150 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_redux/flutter_redux.dart';
+import 'package:flutter_redux_addtolist/actions/action_home.dart';
+import 'package:redux/redux.dart';
+
+import 'package:flutter_redux_addtolist/model/model.dart';
+import 'package:flutter_redux_addtolist/reducers/reducer_home.dart';
 
 void main() => runApp(MyApp());
 
 class MyApp extends StatelessWidget {
-  // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Flutter Demo',
-      theme: ThemeData(
-       
-        primarySwatch: Colors.blue,
+    final Store<AppState> store = Store<AppState>(
+      appStateReducer,
+      initialState: AppState.initialState(),
+    );
+
+    // TODO: implement build
+    return StoreProvider(
+      store: store,
+      child: MaterialApp(
+        title: 'Flutter Redux AddToList',
+        theme: ThemeData.dark(),
+        home: MyHomePage(),
       ),
-      home: MyHomePage(title: 'Flutter Demo Home Page'),
     );
   }
 }
 
-class MyHomePage extends StatefulWidget {
-  MyHomePage({Key key, this.title}) : super(key: key);
-  final String title;
-
+class MyHomePage extends StatelessWidget {
   @override
-  _MyHomePageState createState() => _MyHomePageState();
+  Widget build(BuildContext context) {
+    // TODO: implement build
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('Flutter Redux AddToList'),
+      ),
+      body: StoreConnector<AppState, _ViewModel>(
+        converter: (Store<AppState> store) => _ViewModel.create(store),
+        builder: (BuildContext context, _ViewModel viewModel) => Column(
+              children: <Widget>[
+                AddItemWidget(viewModel),
+                Expanded(
+                  child: ItemListWidget(viewModel),
+                ),
+                RemoveItemsButton(viewModel),
+              ],
+            ),
+      ),
+    );
+  }
 }
 
-class _MyHomePageState extends State<MyHomePage> {
-  int _counter = 0;
+class RemoveItemsButton extends StatelessWidget {
+  final _ViewModel model;
 
-  void _incrementCounter() {
-    setState(() {
-      _counter++;
-    });
-  }
+  RemoveItemsButton(this.model);
 
   @override
   Widget build(BuildContext context) {
-   
-    return Scaffold(
-      appBar: AppBar(
-       
-        title: Text(widget.title),
+    return RaisedButton(
+      child: Text('Delete all Items'),
+      onPressed: () => model.onRemoveItems(),
+    );
+  }
+}
+
+class ItemListWidget extends StatelessWidget {
+  final _ViewModel model;
+
+  ItemListWidget(this.model);
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      children: model.items
+          .map((Item item) => ListTile(
+                title: Text(item.body),
+                leading: IconButton(
+                  icon: Icon(Icons.delete),
+                  onPressed: () => model.onRemoveItem(item),
+                ),
+              ))
+          .toList(),
+    );
+  }
+}
+
+class AddItemWidget extends StatefulWidget {
+  final _ViewModel model;
+
+  AddItemWidget(this.model);
+
+  @override
+  _AddItemState createState() => _AddItemState();
+}
+
+class _AddItemState extends State<AddItemWidget> {
+  final TextEditingController controller = TextEditingController();
+
+  @override
+  Widget build(BuildContext context) {
+    return TextField(
+      controller: controller,
+      decoration: InputDecoration(
+        hintText: 'add an Item',
       ),
-      body: Center(
-        // Center is a layout widget. It takes a single child and positions it
-        // in the middle of the parent.
-        child: Column(
-          // Column is also layout widget. It takes a list of children and
-          // arranges them vertically. By default, it sizes itself to fit its
-          // children horizontally, and tries to be as tall as its parent.
-          //
-          // Invoke "debug painting" (press "p" in the console, choose the
-          // "Toggle Debug Paint" action from the Flutter Inspector in Android
-          // Studio, or the "Toggle Debug Paint" command in Visual Studio Code)
-          // to see the wireframe for each widget.
-          //
-          // Column has various properties to control how it sizes itself and
-          // how it positions its children. Here we use mainAxisAlignment to
-          // center the children vertically; the main axis here is the vertical
-          // axis because Columns are vertical (the cross axis would be
-          // horizontal).
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: <Widget>[
-            Text(
-              'You have pushed the button this many times:',
-            ),
-            Text(
-              '$_counter',
-              style: Theme.of(context).textTheme.display1,
-            ),
-          ],
-        ),
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _incrementCounter,
-        tooltip: 'Increment',
-        child: Icon(Icons.add),
-      ), // This trailing comma makes auto-formatting nicer for build methods.
+      onSubmitted: (String s) {
+        widget.model.onAddItem(s);
+        controller.text = '';
+      },
+    );
+  }
+}
+
+class _ViewModel {
+  final List<Item> items;
+  final Function(String) onAddItem;
+  final Function(Item) onRemoveItem;
+  final Function() onRemoveItems;
+
+  _ViewModel({
+    this.items,
+    this.onAddItem,
+    this.onRemoveItem,
+    this.onRemoveItems,
+  });
+
+  factory _ViewModel.create(Store<AppState> store) {
+    _onAddItem(String body) {
+      store.dispatch(AddItemAction(body));
+    }
+
+    _onRemoveItem(Item item) {
+      store.dispatch(RemoveItemAction(item));
+    }
+
+    _onRemoveItems() {
+      store.dispatch(RemoveItemsAction());
+    }
+
+    return _ViewModel(
+      items: store.state.items,
+      onAddItem: _onAddItem,
+      onRemoveItem: _onRemoveItem,
+      onRemoveItems: _onRemoveItems,
     );
   }
 }
